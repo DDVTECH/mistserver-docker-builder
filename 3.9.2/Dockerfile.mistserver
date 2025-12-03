@@ -1,0 +1,28 @@
+FROM alpine AS mist_build
+
+# Pull in build requirements
+RUN apk add --no-cache git patch meson ninja gcc g++ linux-headers pigz curl cjson pkgconfig
+
+# Fetch MistServer from version-pinned source
+RUN curl -fsSL -o /tmp/src.tar.gz "https://github.com/DDVTECH/mistserver/archive/refs/tags/3.9.2.tar.gz" && mkdir /src && tar -xzf /tmp/src.tar.gz --strip-components=1 -C /src && rm -f /tmp/src.tar.gz
+
+# Install mbedtls
+RUN mkdir -p /deps/build/mbedtls && curl -fsSL -o /tmp/mbedtls-3.6.5.tar.bz2 "https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-3.6.5/mbedtls-3.6.5.tar.bz2" && tar -xjf /tmp/mbedtls-3.6.5.tar.bz2 -C /deps && rm -f /tmp/mbedtls-3.6.5.tar.bz2
+RUN cp /src/subprojects/packagefiles/mbedtls/meson.build /deps/mbedtls-3.6.5/ && cp /src/subprojects/packagefiles/mbedtls/include/mbedtls/mbedtls_config.h /deps/mbedtls-3.6.5/include/mbedtls/ && cd /deps/build/mbedtls/ && meson setup /deps/mbedtls-3.6.5 -Dstrip=true && meson install
+
+# Build MistServer
+ARG MIST_OPTS
+ARG DEBUG=3
+ARG VERSION=3.9.2
+ARG TARGETPLATFORM
+ARG RELEASE=Docker_${TARGETPLATFORM}
+RUN mkdir /build/ && cd /build && meson setup /src -DDOCKERRUN=true -DNOUPDATE=true -DDEBUG=${DEBUG} -DVERSION=${VERSION} -DRELEASE=${RELEASE} -Dstrip=true ${MIST_OPTS} && ninja install
+
+# Expose MistServer
+FROM alpine
+RUN apk add --no-cache libstdc++ cjson
+COPY --from=mist_build /usr/local/ /usr/local/
+LABEL org.opencontainers.image.authors="Jaron Viëtor <jaron.vietor@ddvtech.com>"
+EXPOSE 4242 8080 1935 5554 8889/udp 18203/udp
+ENTRYPOINT ["MistController"]
+HEALTHCHECK CMD ["MistUtilHealth"]
