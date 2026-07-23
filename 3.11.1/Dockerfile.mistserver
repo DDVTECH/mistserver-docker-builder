@@ -1,9 +1,12 @@
-FROM alpine:3.23
+FROM alpine:3.24
 
 ARG MIST_OPTS=""
 ARG MIST_DEBUG=3
-ENV MIST_VERSION=3.9.2
-ENV MBEDTLS_VERSION=3.6.5
+ENV MIST_VERSION=3.11.1
+ENV MIST_SHA256=8a76b9cc06fcaf544a4d80763234a1b0001d34ea96e414c148e90fbb37d091d6
+
+ENV MBEDTLS_VERSION=3.6.6
+ENV MBEDTLS_SHA256=8fb65fae8dcae5840f793c0a334860a411f884cc537ea290ce1c52bb64ca007a
 
 RUN set -eux; \
   apk add --no-cache --virtual .build-deps \
@@ -20,14 +23,16 @@ RUN set -eux; \
     pkgconfig \
     pax-utils; \
   \
-  curl -fsSL -o /tmp/src.tar.gz "https://github.com/DDVTECH/mistserver/archive/refs/tags/${MIST_VERSION}.tar.gz"; \
+  curl -fsSL -o /tmp/src.tar.gz "https://r.mistserver.org/dl/mistserver_sourceV${MIST_VERSION}.tar.gz"; \
+  echo "${MIST_SHA256} */tmp/src.tar.gz" | sha256sum -c -; \
   mkdir /src; \
-  tar -xzf /tmp/src.tar.gz --strip-components=1 -C /src; \
+  tar -xzf /tmp/src.tar.gz -C /src; \
   rm -f /tmp/src.tar.gz; \
   \
 # Explicitly build mbedtls because official builds lack DTLS support
   mkdir -p /deps/build/mbedtls; \
   curl -fsSL -o /tmp/mbedtls-${MBEDTLS_VERSION}.tar.bz2 "https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-${MBEDTLS_VERSION}/mbedtls-${MBEDTLS_VERSION}.tar.bz2"; \
+  echo "${MBEDTLS_SHA256} */tmp/mbedtls-${MBEDTLS_VERSION}.tar.bz2" | sha256sum -c -; \
   tar -xjf /tmp/mbedtls-${MBEDTLS_VERSION}.tar.bz2 -C /deps; \
   rm -f /tmp/mbedtls-${MBEDTLS_VERSION}.tar.bz2; \
   \
